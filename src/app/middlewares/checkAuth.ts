@@ -1,30 +1,55 @@
 import { NextFunction, Request, Response } from "express";
+import { JwtPayload } from "jsonwebtoken";
 import AppError from "../errorHelpers/AppError";
 import { env } from "../config/env";
 import { TRole } from "../modules/users/user.interface";
+import User from "../modules/users/user.model";
 import { verifyToken } from "../utils/jwt";
 
-const checkAuth = (...requiredRoles: TRole[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const authHeader = req.headers.authorization;
+const checkAuth =
+  (...authRoles: TRole[]) =>
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+    const authorizationHeader = req.headers.authorization;
+    const cookieToken = req.cookies?.accessToken as string | undefined;
+    const tokenFromHeader = authorizationHeader?.startsWith("Bearer ")
+      ? authorizationHeader.split(" ")[1]
+      : authorizationHeader;
+      const accessToken = tokenFromHeader || cookieToken;
 
-    if (!authHeader) {
-      throw new AppError(401, "Authorization token is required");
+      if (!accessToken) {
+        throw new AppError(403, "No token received");
+      }
+
+      const verifiedToken = verifyToken(
+        accessToken,
+        env.JWT_ACCESS_SECRET
+      ) as JwtPayload;
+
+      const isUserExist = await 
+      User.findOne({ email: verifiedToken.email });
+
+      if (!isUserExist) {
+        throw new AppError(400, "User does not exist");
+      }
+
+      if (!isUserExist.isVerified) {
+        throw new AppError(400, "User is not verified");
+      }
+
+      if (
+        authRoles.length &&
+        !authRoles.includes(verifiedToken.role as TRole)
+      ) {
+        throw new AppError(403, "You are not permitted to view this route");
+      }
+
+      res.locals.user = verifiedToken;
+      next();
+    } catch (error) {
+      console.log("jwt error", error);
+      next(error);
     }
-
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.split(" ")[1]
-      : authHeader;
-
-    const decoded = verifyToken(token, env.JWT_ACCESS_SECRET);
-
-    if (requiredRoles.length && !requiredRoles.includes(decoded.role)) {
-      throw new AppError(403, "Forbidden: insufficient permissions");
-    }
-
-    res.locals.user = decoded;
-    next();
   };
-};
 
 export default checkAuth;

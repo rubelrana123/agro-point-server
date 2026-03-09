@@ -1,16 +1,16 @@
-import jwt, { Secret, SignOptions } from "jsonwebtoken";
-import { TJwtPayload } from "../modules/auth/auth.interface";
+import jwt, { JwtPayload, SignOptions } from "jsonwebtoken"
 
-export const createToken = (
-  payload: TJwtPayload,
-  secret: Secret,
-  expiresIn: string | number
-) => {
-  return jwt.sign(payload, secret, {
-    expiresIn: expiresIn as SignOptions["expiresIn"]
-  });
-};
+export const createToken = (payload: JwtPayload, secret: string, expiresIn: string) => {
+    const token = jwt.sign(payload, secret, {
+        expiresIn
+    } as SignOptions)
 
-export const verifyToken = (token: string, secret: Secret) => {
-  return jwt.verify(token, secret) as TJwtPayload;
-};
+    return token
+}
+
+export const verifyToken = (token: string, secret: string) => {
+   console.log(token, secret , "from jwt.ts")
+    const verifiedToken = jwt.verify(token, secret);
+console.log(verifiedToken, "verIFIED TOKEN FROM JWT.TS")
+    return verifiedToken
+}
